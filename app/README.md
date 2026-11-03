@@ -1,81 +1,73 @@
-# xk_streamparser / app
+# app/ — пайплайн
 
-Приложение для скачивания стримов, субтитров, Whisper-расшифровки и сравнения
-ASR. Все команды ниже выполняются **из этой папки** (`app`).
+Скрипты и данные, которые превращают стримы в проверенные заметки и базу знаний.
 
-## Почему не YouTube Data API v3
+## Структура
 
-Data API даёт метаданные и список дорожек субтитров, но **не отдаёт видео и
-чужие субтитры**. `captions.download` работает только для видео, которыми
-владеет аккаунт. Поэтому для исследования используется `yt-dlp`.
-
-## Установка
-
-```powershell
-uv sync --python 3.12 --extra cuda
+```text
+app/
+├── scripts/   # сессионизация, проверки, обслуживание
+├── prompts/   # инструкции для извлечения и проверки
+├── data/      # транскрипты, задания, доказательства, кеш времени
+└── .venv/     # окружение Python
 ```
 
-`--extra cuda` нужен для NVIDIA GPU: ставит cuBLAS/cuDNN, которые CTranslate2
-не находит сам на Windows. Без GPU используйте просто `uv sync --python 3.12`.
-`ffmpeg` должен быть в PATH. Модели Whisper лежат в `models/` и в git не попадают.
+## Полный цикл
 
-## Быстрый тест
+1. **Сессионизация.** `sessionize.py` склеивает части с разрывом меньше трёх
+   часов, собирает `streams/_sessions.json` и транскрипты в
+   `data/_sessions/<id>/transcript.txt`.
+2. **Реальные даты.** `fetch_times.py` забирает даты старта через `yt-dlp` и
+   складывает в `data/_times.json`.
+3. **Задания.** `make_jobs.py` пишет `data/jobs/<id>.json`; `next_batch.py`
+   показывает очередь.
+4. **Извлечение.** Агент по `prompts/extract_notes.md` читает полный транскрипт
+   и пишет заметку и `data/claims/<id>.json`.
+5. **Проверка.** Другой агент по `prompts/verify_notes.md` независимо проверяет
+   каждый пункт и пишет `<id>_verdicts.json`.
+6. **Применение правок.** `apply_verdicts.py` обновляет доказательства,
+   `apply_verdicts_to_note.py` — текст заметки (сопоставление по времени
+   ссылки, а не по порядку).
+7. **Финальная сверка.** `finalize_session.py` и `check_notes.py`.
+8. **База знаний.** `aggregate_claims.py` собирает `data/claims_all.jsonl`,
+   `check_knowledge.py` сверяет ссылки в `notes/`.
 
-1. Скачать 5 минут аудио (16 кГц, моно) и auto-субтитры:
+## Команды
 
-```powershell
-.\.venv\Scripts\python.exe scripts\fetch.py `
-  "https://www.youtube.com/watch?v=ggs0f0xxFXI" `
-  --start 01:30:00 --duration 5m
+```bash
+python scripts/sessionize.py
+python scripts/fetch_times.py
+python scripts/make_jobs.py
+python scripts/next_batch.py 15
+python scripts/finalize_session.py 151
+python scripts/check_all.py
+python scripts/aggregate_claims.py
+python scripts/check_knowledge.py
+python scripts/session_usage.py <session_id>
 ```
 
-2. Распознать кусок через Whisper:
+## Данные
 
-```powershell
-.\.venv\Scripts\python.exe scripts\transcribe.py `
-  "data\ggs0f0xxFXI\audio\ggs0f0xxFXI_013000.wav" `
-  --model models\large-v3-turbo-local `
-  --device cuda --compute-type int8_float16 `
-  --condition-on-previous-text `
-  --initial-prompt "Стрим xk. Обсуждаем ИИ, ИИшку, искусственный интеллект, нейрослоп, геймдев, Steam, GTA, Unreal Engine, Unity, геймдизайн, дофамин, анонс, билд, релиз."
-```
+- `data/_sessions/<id>/transcript.txt` — склеенный транскрипт с `## PART`;
+- `data/claims/<id>.json` — тезисы с цитатами, временем, scope и условиями;
+- `data/claims/<id>_verdicts.json` — вердикты проверяющего;
+- `data/claims_all.jsonl` — общая база проверенных тезисов;
+- `data/jobs/<id>.json` — задание на сессию;
+- `data/_times.json` — кеш реальных дат старта.
 
-3. Сравнить с auto-субтитрами:
+Старые папки с `video_id` — наследие первой версии, пайплайном не используются.
 
-```powershell
-.\.venv\Scripts\python.exe scripts\compare.py `
-  --auto "data\ggs0f0xxFXI\subs\ggs0f0xxFXI.ru-orig.vtt" `
-  --whisper "data\ggs0f0xxFXI\audio\whisper\ggs0f0xxFXI_013000.jsonl" `
-  --whisper-offset 5400 `
-  --window 30 `
-  --out "data\ggs0f0xxFXI\comparison_013000.md"
-```
+## Требования
 
-`--whisper-offset` — начало куска в секундах, потому что Whisper нумерует время
-от начала файла, а субтитры YouTube — от начала стрима.
+- Python 3.12 и `.venv`;
+- `yt-dlp` для субтитров и метаданных;
+- `faster-whisper` для сессий без субтитров;
+- прокси для YouTube (в этом окружении — `127.0.0.1:7897`).
 
-## Что внутри
+## Правила
 
-- `scripts/fetch.py` — метаданные, auto/manual субтитры, аудио-отрезок.
-- `scripts/vtt.py` — парсер WebVTT и удаление «бегущих» повторов YouTube.
-- `scripts/analyze_subs.py` — ищет в субтитрах участки с высокой плотностью речи.
-- `scripts/transcribe.py` — faster-whisper, VAD, JSONL/TXT/VTT.
-- `scripts/compare.py` — сводка, WER/CER (если есть эталон), текст рядом по окнам.
-
-## Ограничения
-
-- YouTube auto-captions часто без пунктуации, путают имена, сленг и английские
-  вставки. Повторы строк удаляются эвристикой, поэтому на границах кусков
-  возможны потери.
-- Whisper любит «зацикливаться» на музыке и тишине. Включён VAD и
-  `condition_on_previous_text=False`, но проверять повторяющиеся 5-граммы всё
-  равно нужно (см. `repeated_5-grams` в отчёте).
-- WER между auto и Whisper — это **расхождение**, а не точность. Для настоящей
-  оценки нужен вручную выверенный эталон (`--reference`).
-- Скачивание чужих VOD через `yt-dlp` нарушает ToS YouTube. Для собственного
-  канала используйте YouTube Studio.
-
-## Железо
-
-GTX 1650 4 ГБ тянет `large-v3-turbo` в `int8_float16`. Если не хватит памяти —
-`medium` или `small`, либо `--device cpu --compute-type int8`.
+- сессия — части с разрывом меньше трёх часов; дата — первый старт по Москве;
+- каждый тезис подтверждается дословной цитатой из полного транскрипта;
+- цитаты не «причёсываются»: опечатки автосубтитров сохраняются;
+- имена восстанавливаются только при однозначном оригинале;
+- проверка независимая: проверяющий не видит, как писались заметки.
