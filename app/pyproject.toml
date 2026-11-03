@@ -1,0 +1,20 @@
+[project]
+name = "xk-streamparser"
+version = "0.1.0"
+description = "Download stream audio/subtitles, transcribe, compare ASR backends"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "av>=11,<16",
+    "faster-whisper>=1.1.0",
+    "jiwer>=3.0.4",
+    "yt-dlp>=2024.12.13",
+]
+
+[project.optional-dependencies]
+cuda = [
+    "nvidia-cublas-cu12==12.9.2.10; sys_platform == 'win32'",
+    "nvidia-cudnn-cu12==9.27.0.42; sys_platform == 'win32'",
+]
+
+[tool.uv]
+package = false

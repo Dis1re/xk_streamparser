@@ -1,0 +1,33 @@
+# Python / environment
+.venv/
+app/.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Local media, subtitles and models
+app/data/
+app/models/
+
+# Whisper queue: keep README + manifest, ignore audio and temp files
+app/whisper_queue/*.m4a
+app/whisper_queue/*.webm
+app/whisper_queue/*.wav
+app/whisper_queue/*.tmp
+app/whisper_queue/failures.json
+
+# Archives for transferring audio to the server
+app/whisper_queue.zip.*
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs and local env
+*.log
+.env
+.env.*
