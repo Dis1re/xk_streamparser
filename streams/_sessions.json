@@ -6973,5 +6973,38 @@
     "old_note": "archive\\streams_v1\\186_18_игр_за_180_минут.md",
     "full_notes": 1,
     "placeholders": 0
+  },
+  {
+    "session_id": "187",
+    "label": "187",
+    "date": "03.11.2026",
+    "date_iso": "2026-11-03",
+    "date_group_london": "2026-11-03",
+    "start_utc": "2026-11-03T18:04:38+00:00",
+    "start_london": "2026-11-03T18:04:38+00:00",
+    "start_msk": "2026-11-03T21:04:38+03:00",
+    "date_verified": true,
+    "title": "Рогалик где вы играете в общем подземелье?",
+    "filename": "187_Рогалик_где_вы_играете_в_общем_подземелье.md",
+    "parts": [
+      {
+        "index": 1,
+        "label": "187/1",
+        "video_id": "ftYZwW4p1pI",
+        "duration": "3:16:47",
+        "start_utc": "2026-11-03T18:04:38+00:00",
+        "start_msk": "2026-11-03T21:04:38+03:00",
+        "offset": 0,
+        "source": "YouTube auto-captions",
+        "old_path": "",
+        "has_transcript": true,
+        "placeholder": false,
+        "date_verified": true
+      }
+    ],
+    "transcript": "app\\data\\_sessions\\187\\transcript.txt",
+    "old_note": "",
+    "full_notes": 0,
+    "placeholders": 0
   }
 ]
